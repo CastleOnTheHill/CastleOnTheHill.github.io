@@ -1,0 +1,379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=2">
+<meta name="theme-color" content="#222">
+<meta name="generator" content="Hexo 5.3.0">
+
+
+  <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon-next.png">
+  <link rel="icon" type="image/png" sizes="32x32" href="/images/favicon-32x32-next.png">
+  <link rel="icon" type="image/png" sizes="16x16" href="/images/favicon-16x16-next.png">
+  <link rel="mask-icon" href="/images/logo.svg" color="#222">
+
+<link rel="stylesheet" href="/css/main.css">
+
+
+
+<link rel="stylesheet" href="//cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@5.15.1/css/all.min.css">
+  <link rel="stylesheet" href="//cdn.jsdelivr.net/npm/animate.css@3.1.1/animate.min.css">
+
+<script class="hexo-configurations">
+    var NexT = window.NexT || {};
+    var CONFIG = {"hostname":"yoursite.com","root":"/","images":"/images","scheme":"Muse","version":"8.1.0","exturl":false,"sidebar":{"position":"left","display":"post","padding":18,"offset":12},"copycode":false,"bookmark":{"enable":false,"color":"#222","save":"auto"},"fancybox":false,"mediumzoom":false,"lazyload":false,"pangu":false,"comments":{"style":"tabs","active":null,"storage":true,"lazyload":false,"nav":null},"motion":{"enable":true,"async":false,"transition":{"post_block":"fadeIn","post_header":"fadeInDown","post_body":"fadeInDown","coll_header":"fadeInLeft","sidebar":"fadeInUp"}},"prism":false,"i18n":{"placeholder":"Searching...","empty":"We didn't find any results for the search: ${query}","hits_time":"${hits} results found in ${time} ms","hits":"${hits} results found"}};
+  </script>
+<meta name="description" content="一般的模型的加载在LeanOpenGL里已经讲解得比较清楚了，本博文是介绍如何在LeanOpenGL示例Mesh.h，和Model.h基础之上扩展，使其支持骨骼动画的播放。 骨骼动画的原理 带有骨骼动画的模型除了有skin（即一系列的网格），还有骨骼aiBone和动画aiAnimation。骨骼没有大小和位置，只有一个名字和初始旋转矩阵（决定了骨骼的初始姿态），除此之外，每一个骨骼还存储了它所影响">
+<meta property="og:type" content="article">
+<meta property="og:title" content="OpenGL加载骨骼动画">
+<meta property="og:url" content="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/index.html">
+<meta property="og:site_name" content="Rhino&#39;s Blog">
+<meta property="og:description" content="一般的模型的加载在LeanOpenGL里已经讲解得比较清楚了，本博文是介绍如何在LeanOpenGL示例Mesh.h，和Model.h基础之上扩展，使其支持骨骼动画的播放。 骨骼动画的原理 带有骨骼动画的模型除了有skin（即一系列的网格），还有骨骼aiBone和动画aiAnimation。骨骼没有大小和位置，只有一个名字和初始旋转矩阵（决定了骨骼的初始姿态），除此之外，每一个骨骼还存储了它所影响">
+<meta property="og:locale" content="en_US">
+<meta property="og:image" content="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/assimp%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png">
+<meta property="og:image" content="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB%E6%92%AD%E6%94%BE.png">
+<meta property="article:published_time" content="2019-07-03T02:54:06.000Z">
+<meta property="article:modified_time" content="2020-12-20T12:16:49.801Z">
+<meta property="article:author" content="Rhino Hu">
+<meta property="article:tag" content="opengl">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:image" content="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/assimp%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png">
+
+
+<link rel="canonical" href="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/">
+
+
+<script class="page-configurations">
+  // https://hexo.io/docs/variables.html
+  CONFIG.page = {
+    sidebar: "",
+    isHome : false,
+    isPost : true,
+    lang   : 'en'
+  };
+</script>
+<title>OpenGL加载骨骼动画 | Rhino's Blog</title>
+  
+
+
+
+  <noscript>
+  <style>
+  body { margin-top: 2rem; }
+
+  .use-motion .menu-item,
+  .use-motion .sidebar,
+  .use-motion .post-block,
+  .use-motion .pagination,
+  .use-motion .comments,
+  .use-motion .post-header,
+  .use-motion .post-body,
+  .use-motion .collection-header {
+    visibility: visible;
+  }
+
+  .use-motion .header,
+  .use-motion .site-brand-container .toggle,
+  .use-motion .footer { opacity: initial; }
+
+  .use-motion .site-title,
+  .use-motion .site-subtitle,
+  .use-motion .custom-logo-image {
+    opacity: initial;
+    top: initial;
+  }
+
+  .use-motion .logo-line {
+    transform: scaleX(1);
+  }
+
+  .search-pop-overlay, .sidebar-nav { display: none; }
+  .sidebar-panel { display: block; }
+  </style>
+</noscript>
+
+<link rel="alternate" href="/atom.xml" title="Rhino's Blog" type="application/atom+xml">
+</head>
+
+<body itemscope itemtype="http://schema.org/WebPage" class="use-motion">
+  <div class="headband"></div>
+
+  <main class="main">
+    <header class="header" itemscope itemtype="http://schema.org/WPHeader">
+      <div class="header-inner"><div class="site-brand-container">
+  <div class="site-nav-toggle">
+    <div class="toggle" aria-label="Toggle navigation bar">
+    </div>
+  </div>
+
+  <div class="site-meta">
+
+    <a href="/" class="brand" rel="start">
+      <i class="logo-line"></i>
+      <h1 class="site-title">Rhino's Blog</h1>
+      <i class="logo-line"></i>
+    </a>
+  </div>
+
+  <div class="site-nav-right">
+    <div class="toggle popup-trigger">
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
+
+</div>
+        
+  
+  <div class="toggle sidebar-toggle">
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+    <span class="toggle-line"></span>
+  </div>
+
+  <aside class="sidebar">
+
+    <div class="sidebar-inner sidebar-nav-active sidebar-toc-active">
+      <ul class="sidebar-nav">
+        <li class="sidebar-nav-toc">
+          Table of Contents
+        </li>
+        <li class="sidebar-nav-overview">
+          Overview
+        </li>
+      </ul>
+
+      <div class="sidebar-panel-container">
+        <!--noindex-->
+        <section class="post-toc-wrap sidebar-panel">
+            <div class="post-toc animated"><ol class="nav"><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB%E7%9A%84%E5%8E%9F%E7%90%86"><span class="nav-number">1.</span> <span class="nav-text">骨骼动画的原理</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%A8%E9%AA%BC%E7%9B%B8%E5%85%B3%E6%95%B0%E6%8D%AE%E7%9A%84%E5%8A%A0%E8%BD%BD"><span class="nav-number">2.</span> <span class="nav-text">骨骼相关数据的加载</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E6%89%A9%E5%B1%95Mesh%E4%B8%AD%E7%9A%84%E9%A1%B6%E7%82%B9%E7%BB%93%E6%9E%84%E4%BD%93%EF%BC%9A"><span class="nav-number">2.1.</span> <span class="nav-text">扩展Mesh中的顶点结构体：</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E6%95%B0%E6%8D%AE%E5%B9%B6%E5%BD%92%E4%B8%80%E5%8C%96"><span class="nav-number">2.2.</span> <span class="nav-text">加载骨骼数据并归一化</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB%E7%9A%84%E6%B8%B2%E6%9F%93"><span class="nav-number">3.</span> <span class="nav-text">骨骼动画的渲染</span></a><ol class="nav-child"><li class="nav-item nav-level-3"><a class="nav-link" href="#%E8%AE%A1%E7%AE%97%E5%BD%93%E5%89%8D%E5%B8%A7"><span class="nav-number">3.1.</span> <span class="nav-text">计算当前帧</span></a></li><li class="nav-item nav-level-3"><a class="nav-link" href="#%E5%B0%86%E9%AA%A8%E9%AA%BC%E5%A7%BF%E6%80%81%E4%BD%9C%E7%94%A8%E5%9C%A8%E9%A1%B6%E7%82%B9%E4%B8%8A"><span class="nav-number">3.2.</span> <span class="nav-text">将骨骼姿态作用在顶点上</span></a></li></ol></li><li class="nav-item nav-level-2"><a class="nav-link" href="#Code"><span class="nav-number">4.</span> <span class="nav-text">Code</span></a></li><li class="nav-item nav-level-2"><a class="nav-link" href="#%E5%8F%82%E8%80%83"><span class="nav-number">5.</span> <span class="nav-text">参考</span></a></li></ol></div>
+        </section>
+        <!--/noindex-->
+
+        <section class="site-overview-wrap sidebar-panel">
+          <div class="site-author site-overview-item animated" itemprop="author" itemscope itemtype="http://schema.org/Person">
+  <p class="site-author-name" itemprop="name">Rhino Hu</p>
+  <div class="site-description" itemprop="description">从小事做起</div>
+</div>
+<div class="site-state-wrap site-overview-item animated">
+  <nav class="site-state">
+      <div class="site-state-item site-state-posts">
+          <a href="/archives">
+          <span class="site-state-item-count">13</span>
+          <span class="site-state-item-name">posts</span>
+        </a>
+      </div>
+      <div class="site-state-item site-state-tags">
+            <a href="/tags/">
+        <span class="site-state-item-count">17</span>
+        <span class="site-state-item-name">tags</span></a>
+      </div>
+  </nav>
+</div>
+
+
+
+        </section>
+      </div>
+    </div>
+  </aside>
+  <div class="sidebar-dimmer"></div>
+
+
+    </header>
+
+    
+  <div class="back-to-top">
+    <i class="fa fa-arrow-up"></i>
+    <span>0%</span>
+  </div>
+
+<noscript>
+  <div class="noscript-warning">Theme NexT works best with JavaScript enabled</div>
+</noscript>
+
+
+    <div class="main-inner post posts-expand">
+
+
+  
+
+
+<div class="post-block">
+  
+  
+
+  <article itemscope itemtype="http://schema.org/Article" class="post-content" lang="en">
+    <link itemprop="mainEntityOfPage" href="http://yoursite.com/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/">
+
+    <span hidden itemprop="author" itemscope itemtype="http://schema.org/Person">
+      <meta itemprop="image" content="/images/avatar.gif">
+      <meta itemprop="name" content="Rhino Hu">
+      <meta itemprop="description" content="从小事做起">
+    </span>
+
+    <span hidden itemprop="publisher" itemscope itemtype="http://schema.org/Organization">
+      <meta itemprop="name" content="Rhino's Blog">
+    </span>
+      <header class="post-header">
+        <h1 class="post-title" itemprop="name headline">
+          OpenGL加载骨骼动画
+        </h1>
+
+        <div class="post-meta-container">
+          <div class="post-meta">
+    <span class="post-meta-item">
+      <span class="post-meta-item-icon">
+        <i class="far fa-calendar"></i>
+      </span>
+      <span class="post-meta-item-text">Posted on</span>
+
+      <time title="Created: 2019-07-03 10:54:06" itemprop="dateCreated datePublished" datetime="2019-07-03T10:54:06+08:00">2019-07-03</time>
+    </span>
+      <span class="post-meta-item">
+        <span class="post-meta-item-icon">
+          <i class="far fa-calendar-check"></i>
+        </span>
+        <span class="post-meta-item-text">Edited on</span>
+        <time title="Modified: 2020-12-20 20:16:49" itemprop="dateModified" datetime="2020-12-20T20:16:49+08:00">2020-12-20</time>
+      </span>
+
+  
+</div>
+
+        </div>
+      </header>
+
+    
+    
+    
+    <div class="post-body" itemprop="articleBody">
+        <p>一般的模型的加载在<a target="_blank" rel="noopener" href="https://learnopengl-cn.github.io/03%20Model%20Loading/01%20Assimp/">LeanOpenGL</a>里已经讲解得比较清楚了，本博文是介绍如何在<a target="_blank" rel="noopener" href="https://learnopengl-cn.github.io/03%20Model%20Loading/01%20Assimp/">LeanOpenGL</a>示例<code>Mesh.h</code>，和<code>Model.h</code>基础之上扩展，使其支持骨骼动画的播放。</p>
+<h2 id="骨骼动画的原理"><a href="#骨骼动画的原理" class="headerlink" title="骨骼动画的原理"></a>骨骼动画的原理</h2><p><img src="/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/assimp%E6%95%B0%E6%8D%AE%E7%BB%93%E6%9E%84.png" alt="Assimp数据结构"></p>
+<p>带有骨骼动画的模型除了有skin（即一系列的网格），还有骨骼<code>aiBone</code>和动画<code>aiAnimation</code>。骨骼没有大小和位置，只有一个名字和初始旋转矩阵（决定了骨骼的初始姿态），除此之外，每一个骨骼还存储了它所影响的顶点的ID以及影响的权重；动画<code>aiAnimation</code>存储了一系列的关键帧和当前动画的持续时间。关键帧存储的是从初始姿态到当前姿态，所有骨骼要经过的旋转平移和缩放。</p>
+<p>在骨骼动画播放的时候，首先根据当前时间找到动画的前一个关键帧和后一个关键帧，然后根据到这两个关键帧的时间距离进行线性插值，得到当前关键帧。再将当前关键帧的旋转平移和缩放应用到所有相关的骨骼上，从而改变当前的骨骼姿态。</p>
+<p><img src="/2019/07/03/OpenGL%E5%8A%A0%E8%BD%BD%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB/%E9%AA%A8%E9%AA%BC%E5%8A%A8%E7%94%BB%E6%92%AD%E6%94%BE.png" alt="骨骼动画播放"></p>
+<p>最后在着色器中，将骨骼当前的姿态，按照权重作用到受其影响的顶点上，从而改变顶点的位置。</p>
+<h2 id="骨骼相关数据的加载"><a href="#骨骼相关数据的加载" class="headerlink" title="骨骼相关数据的加载"></a>骨骼相关数据的加载</h2><h3 id="扩展Mesh中的顶点结构体："><a href="#扩展Mesh中的顶点结构体：" class="headerlink" title="扩展Mesh中的顶点结构体："></a>扩展<code>Mesh</code>中的顶点结构体：</h3><figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br><span class="line">47</span><br><span class="line">48</span><br><span class="line">49</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#<span class="meta-keyword">define</span> BONE_INFO_NUM 4</span></span><br><span class="line"></span><br><span class="line"><span class="class"><span class="keyword">struct</span> <span class="title">Vertex</span> &#123;</span></span><br><span class="line">	<span class="comment">// position</span></span><br><span class="line">	glm::vec3 Position;</span><br><span class="line">	<span class="comment">// normal</span></span><br><span class="line">	glm::vec3 Normal;</span><br><span class="line">    <span class="comment">// 这里的注释是因为项目中使用的都是多边形的模型，并没有纹理贴图，所以去掉了</span></span><br><span class="line">	<span class="comment">//// texCoords</span></span><br><span class="line">	<span class="comment">//glm::vec2 TexCoords;</span></span><br><span class="line">	<span class="comment">//// tangent</span></span><br><span class="line">	<span class="comment">//glm::vec3 Tangent;</span></span><br><span class="line">	<span class="comment">//// bitangent</span></span><br><span class="line">	<span class="comment">//glm::vec3 Bitangent;</span></span><br><span class="line">	glm::ivec4 boneID; <span class="comment">//影响骨骼ID</span></span><br><span class="line"></span><br><span class="line">	glm::vec4 boneWeight; <span class="comment">// 对应权重</span></span><br><span class="line"></span><br><span class="line">	Vertex() &#123;</span><br><span class="line">		Position = glm::vec3(<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>);</span><br><span class="line">		Normal = glm::vec3(<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>);</span><br><span class="line">		boneID = glm::ivec4(<span class="number">-1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">		boneWeight = glm::vec4(<span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>, <span class="number">0.0f</span>);</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">AddBoneData</span><span class="params">(uint BoneID, <span class="keyword">float</span> Weight)</span> </span>&#123;</span><br><span class="line">		<span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> i = <span class="number">0</span>; i &lt; BONE_INFO_NUM; i++) &#123;</span><br><span class="line">			<span class="keyword">if</span> (Weight &gt; boneWeight[i]) &#123;</span><br><span class="line">				<span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> j = BONE_INFO_NUM - <span class="number">1</span>; j &gt; i; j--) &#123;</span><br><span class="line">					boneWeight[j] = boneWeight[j - <span class="number">1</span>];</span><br><span class="line">					boneID[j] = boneID[j - <span class="number">1</span>];</span><br><span class="line">				&#125;</span><br><span class="line">				boneWeight[i] = Weight;</span><br><span class="line">				boneID[i] = BoneID;</span><br><span class="line">				<span class="keyword">break</span>;</span><br><span class="line">			&#125;</span><br><span class="line">		&#125;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	<span class="function"><span class="keyword">void</span> <span class="title">normalizeBoneWeight</span><span class="params">()</span> </span>&#123;</span><br><span class="line">		<span class="keyword">float</span> totalWeight = boneWeight.x + boneWeight.y + boneWeight.z + boneWeight.w;</span><br><span class="line">		boneWeight.x = boneWeight.x / totalWeight;</span><br><span class="line">		boneWeight.y = boneWeight.y / totalWeight;</span><br><span class="line">		boneWeight.z = boneWeight.z / totalWeight;</span><br><span class="line">		boneWeight.w = boneWeight.w / totalWeight;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line"></span><br><span class="line">&#125;;</span><br></pre></td></tr></table></figure>
+<p>顶点记录了影响它的骨骼的ID<code>boneID</code>，和对应的权重<code>boneWeight</code>，影响顶点的骨骼数量是没有上限的，在这里我们<strong>只取影响最大的4个骨骼</strong>。这里要注意的是，只取最大的四个，最后他们的权重和并不为1，导致在播放骨骼动画的时候，模型会变形，<strong>所以在所有骨骼都处理完毕之后，要对每一个顶点执行<code>normalizeBoneWeight</code>函数，使它们的权重值和为1</strong>。</p>
+<h3 id="加载骨骼数据并归一化"><a href="#加载骨骼数据并归一化" class="headerlink" title="加载骨骼数据并归一化"></a>加载骨骼数据并归一化</h3><p>在加载完<code>Mesh</code>的其他数据的时候，遍历<code>Mesh</code>中的所有骨骼，将骨骼的ID和权重添加到对应的顶点的属性中，这里参照<code>ogldev</code>教程（参考3）的做法，所有<code>Mesh</code>的骨骼是存在一起的，这样方便最后一次性将所有骨骼的姿态传入着色器。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment">// 加载骨骼权重信息到顶点，并将骨骼加入allBones和boneMap</span></span><br><span class="line"><span class="keyword">for</span> (uint i = <span class="number">0</span>; i &lt; mesh-&gt;mNumBones; i++) &#123;</span><br><span class="line">	<span class="keyword">unsigned</span> <span class="keyword">int</span> BoneIndex = <span class="number">0</span>;</span><br><span class="line">	<span class="function"><span class="built_in">string</span> <span class="title">BoneName</span><span class="params">(mesh-&gt;mBones[i]-&gt;mName.data)</span></span>;</span><br><span class="line">	<span class="keyword">if</span> (boneMap.find(BoneName) == boneMap.end()) &#123;</span><br><span class="line">		<span class="comment">// Allocate an index for a new bone</span></span><br><span class="line">		BoneIndex = numBones;</span><br><span class="line">		numBones++;</span><br><span class="line">		Bone tmpBone;</span><br><span class="line">		tmpBone.boneOffset = mesh-&gt;mBones[i]-&gt;mOffsetMatrix;</span><br><span class="line">		tmpBone.name = BoneName;</span><br><span class="line">		<span class="comment">// 加入map</span></span><br><span class="line">		boneMap[BoneName] = BoneIndex;</span><br><span class="line">		<span class="comment">// 加入allBones</span></span><br><span class="line">		allBones.push_back(tmpBone);</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">else</span> &#123;</span><br><span class="line">		BoneIndex = boneMap[BoneName];</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="keyword">for</span> (uint j = <span class="number">0</span>; j &lt; mesh-&gt;mBones[i]-&gt;mNumWeights; j++) &#123;</span><br><span class="line">		<span class="keyword">unsigned</span> <span class="keyword">int</span> vertexID = mesh-&gt;mBones[i]-&gt;mWeights[j].mVertexId;</span><br><span class="line">		<span class="keyword">float</span> weight = mesh-&gt;mBones[i]-&gt;mWeights[j].mWeight;</span><br><span class="line">		<span class="comment">// 给vertices添加影响骨骼信息</span></span><br><span class="line">		vertices[vertexID].AddBoneData(BoneIndex, weight);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br><span class="line"><span class="comment">// 所有的骨骼都加上影响权重之后</span></span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">auto</span>&amp; vertex : vertices) &#123;</span><br><span class="line">	vertex.normalizeBoneWeight();</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="骨骼动画的渲染"><a href="#骨骼动画的渲染" class="headerlink" title="骨骼动画的渲染"></a>骨骼动画的渲染</h2><h3 id="计算当前帧"><a href="#计算当前帧" class="headerlink" title="计算当前帧"></a>计算当前帧</h3><p><em>以下直接直接复用了<code>ogldev</code>教程的源码</em></p>
+<p>这里设置的动画是循环播放的，所以将当前时间以模型持续时间取模，计算出动画的时间位置。</p>
+<p>骨骼是一个树的结构，骨骼树的信息存储在以<code>Scene-&gt;mRootNode</code>为根节点的树中，如果当前<code>node</code>的<code>mName</code>不为空，那么它就代表一根骨骼，<code>node</code>的<code>childNode</code>就是它的子骨骼。因为父骨骼的姿态要影响到子骨骼的姿态（如大腿骨移动，小腿骨骼也要跟着移动），所以要从根节点开始，一层一层递归地计算。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">BoneTransform</span><span class="params">(<span class="keyword">float</span> TimeInSeconds, <span class="built_in">vector</span>&lt;Matrix4f&gt;&amp; Transforms)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	Matrix4f Identity;</span><br><span class="line">	Identity.InitIdentity();</span><br><span class="line"></span><br><span class="line">	<span class="keyword">float</span> TicksPerSecond = (<span class="keyword">float</span>)(pScene-&gt;mAnimations[<span class="number">0</span>]-&gt;mTicksPerSecond != <span class="number">0</span> ? pScene-&gt;mAnimations[<span class="number">0</span>]-&gt;mTicksPerSecond : <span class="number">25.0f</span>);</span><br><span class="line">	<span class="keyword">float</span> TimeInTicks = TimeInSeconds * TicksPerSecond;</span><br><span class="line">	<span class="keyword">float</span> AnimationTime = <span class="built_in">fmod</span>(TimeInTicks, (<span class="keyword">float</span>)pScene-&gt;mAnimations[<span class="number">0</span>]-&gt;mDuration);</span><br><span class="line"></span><br><span class="line">	ReadNodeHeirarchy(AnimationTime, pScene-&gt;mRootNode, Identity);</span><br><span class="line"></span><br><span class="line">	Transforms.resize(numBones);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">for</span> (uint i = <span class="number">0</span>; i &lt; numBones; i++) &#123;</span><br><span class="line">		Transforms[i] = allBones[i].FinalTransformation;</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>根据当前时间找出当前的前一帧和后一帧，再根据时间差线性插值，计算出的平移，旋转和缩放并结合父骨骼的变换作用到当前骨骼上，最后将计算好的当前骨骼的姿态作为父骨骼的变换，递归地处理所有子骨骼：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br><span class="line">29</span><br><span class="line">30</span><br><span class="line">31</span><br><span class="line">32</span><br><span class="line">33</span><br><span class="line">34</span><br><span class="line">35</span><br><span class="line">36</span><br><span class="line">37</span><br><span class="line">38</span><br><span class="line">39</span><br><span class="line">40</span><br><span class="line">41</span><br><span class="line">42</span><br><span class="line">43</span><br><span class="line">44</span><br><span class="line">45</span><br><span class="line">46</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">ReadNodeHeirarchy</span><span class="params">(<span class="keyword">float</span> AnimationTime, <span class="keyword">const</span> aiNode* pNode, <span class="keyword">const</span> Matrix4f&amp; ParentTransform)</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	<span class="function"><span class="built_in">string</span> <span class="title">NodeName</span><span class="params">(pNode-&gt;mName.data)</span></span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">const</span> aiAnimation* pAnimation = pScene-&gt;mAnimations[<span class="number">0</span>]; <span class="comment">//选择动画</span></span><br><span class="line"></span><br><span class="line">	<span class="function">Matrix4f <span class="title">NodeTransformation</span><span class="params">(pNode-&gt;mTransformation)</span></span>;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">const</span> aiNodeAnim* pNodeAnim = FindNodeAnim(pAnimation, NodeName);</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (pNodeAnim) &#123;</span><br><span class="line">		<span class="comment">// Interpolate scaling and generate scaling transformation matrix</span></span><br><span class="line">		aiVector3D Scaling;</span><br><span class="line">		CalcInterpolatedScaling(Scaling, AnimationTime, pNodeAnim);</span><br><span class="line">		<span class="comment">// 因为我们项目中的动画没有涉及到大小形变，且有的模型动画自带x100的放大，播放动画的时候会变得非常的大，所以这里将骨骼动画的形变量忽略</span></span><br><span class="line">            <span class="comment">// 忽略scale影响</span></span><br><span class="line">		Matrix4f ScalingM;</span><br><span class="line">		<span class="comment">//ScalingM.InitIdentity();</span></span><br><span class="line">		ScalingM.InitScaleTransform(Scaling.x, Scaling.y, Scaling.z);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Interpolate rotation and generate rotation transformation matrix</span></span><br><span class="line">		aiQuaternion RotationQ;</span><br><span class="line">		CalcInterpolatedRotation(RotationQ, AnimationTime, pNodeAnim);</span><br><span class="line">		Matrix4f RotationM = Matrix4f(RotationQ.GetMatrix());</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Interpolate translation and generate translation transformation matrix</span></span><br><span class="line">		aiVector3D Translation;</span><br><span class="line">		CalcInterpolatedPosition(Translation, AnimationTime, pNodeAnim);</span><br><span class="line">		Matrix4f TranslationM;</span><br><span class="line">		TranslationM.InitTranslationTransform(Translation.x, Translation.y, Translation.z);</span><br><span class="line"></span><br><span class="line">		<span class="comment">// Combine the above transformations</span></span><br><span class="line">		NodeTransformation = TranslationM * RotationM * ScalingM;</span><br><span class="line">	&#125;</span><br><span class="line"></span><br><span class="line">	Matrix4f GlobalTransformation = ParentTransform * NodeTransformation;</span><br><span class="line"></span><br><span class="line">	<span class="keyword">if</span> (boneMap.find(NodeName) != boneMap.end()) &#123;</span><br><span class="line">		uint BoneIndex = boneMap[NodeName];</span><br><span class="line">		allBones[BoneIndex].FinalTransformation = globalInverseTransform * GlobalTransformation * allBones[BoneIndex].boneOffset;</span><br><span class="line">	&#125;</span><br><span class="line">	<span class="comment">// 递归处理所有子骨骼</span></span><br><span class="line">	<span class="keyword">for</span> (uint i = <span class="number">0</span>; i &lt; pNode-&gt;mNumChildren; i++) &#123;</span><br><span class="line">		ReadNodeHeirarchy(AnimationTime, pNode-&gt;mChildren[i], GlobalTransformation);</span><br><span class="line">	&#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h3 id="将骨骼姿态作用在顶点上"><a href="#将骨骼姿态作用在顶点上" class="headerlink" title="将骨骼姿态作用在顶点上"></a>将骨骼姿态作用在顶点上</h3><p>最后将计算好的所有的骨骼姿态传入着色器中：</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br></pre></td><td class="code"><pre><span class="line">BoneTransform(time, Transforms);</span><br><span class="line"><span class="keyword">for</span> (<span class="keyword">unsigned</span> <span class="keyword">int</span> i = <span class="number">0</span>; i &lt; numBones; i++) &#123;</span><br><span class="line">    <span class="built_in">sprintf</span>(uniformName, <span class="string">&quot;gBones[%d]&quot;</span>, i);</span><br><span class="line">    GLuint location = glGetUniformLocation(shader.ID, uniformName);</span><br><span class="line">    glUniformMatrix4fv(location, <span class="number">1</span>, GL_TRUE, (<span class="keyword">const</span> GLfloat*)Transforms[i]);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在着色器中，先根据顶点受影响的骨骼ID和权重，计算出当前顶点受骨骼姿态的影响矩阵<code>BoneTransform</code>，顶点在乘以<code>Model，View，Projection</code>矩阵前，先乘以<code>BoneTransform</code>矩阵。</p>
+<figure class="highlight c++"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br></pre></td><td class="code"><pre><span class="line"><span class="meta">#version 330 core</span></span><br><span class="line">layout (location = <span class="number">0</span>) in vec3 aPos;</span><br><span class="line">layout (location = <span class="number">1</span>) in vec3 aNormal;</span><br><span class="line">layout (location = <span class="number">2</span>) in ivec4 BoneIDs;</span><br><span class="line">layout (location = <span class="number">3</span>) in vec4 Weights;</span><br><span class="line"></span><br><span class="line">...</span><br><span class="line">uniform mat4 model;</span><br><span class="line">uniform mat4 view;</span><br><span class="line">uniform mat4 projection;</span><br><span class="line"></span><br><span class="line">... </span><br><span class="line"><span class="keyword">const</span> <span class="keyword">int</span> MAX_BONES = <span class="number">100</span>;</span><br><span class="line">uniform mat4 gBones[MAX_BONES];</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">void</span> <span class="title">main</span><span class="params">()</span></span></span><br><span class="line"><span class="function"></span>&#123;</span><br><span class="line">	mat4 BoneTransform = mat4(<span class="number">1.0</span>);</span><br><span class="line">    BoneTransform = gBones[BoneIDs[<span class="number">0</span>]] * Weights[<span class="number">0</span>];</span><br><span class="line">    BoneTransform     += gBones[BoneIDs[<span class="number">1</span>]] * Weights[<span class="number">1</span>];</span><br><span class="line">    BoneTransform     += gBones[BoneIDs[<span class="number">2</span>]] * Weights[<span class="number">2</span>];</span><br><span class="line">    BoneTransform     += gBones[BoneIDs[<span class="number">3</span>]] * Weights[<span class="number">3</span>];</span><br><span class="line">    vs_out.FragPos = vec3(model * BoneTransform * vec4(aPos, <span class="number">1.0</span>));</span><br><span class="line">	...</span><br><span class="line">    gl_Position = projection * view * vec4(vs_out.FragPos, <span class="number">1.0</span>);</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="Code"><a href="#Code" class="headerlink" title="Code"></a>Code</h2><p>扩展后完整的<a target="_blank" rel="noopener" href="https://github.com/sysu-cg16/Code/blob/master/CGFinalProject/AnimatedMesh.h">Mesh</a>和<a target="_blank" rel="noopener" href="https://github.com/sysu-cg16/Code/blob/master/CGFinalProject/AnimatedModel.h">Model</a></p>
+<h2 id="参考"><a href="#参考" class="headerlink" title="参考"></a>参考</h2><ul>
+<li><a target="_blank" rel="noopener" href="https://learnopengl-cn.github.io/03%20Model%20Loading/01%20Assimp/">LeanOpenGL</a></li>
+<li><a target="_blank" rel="noopener" href="https://www.youtube.com/watch?v=f3Cr8Yx3GGA">OpenGL Skeletal Animation Tutorial</a></li>
+<li><a target="_blank" rel="noopener" href="http://ogldev.atspace.co.uk/www/tutorial38/tutorial38.html">Skeletal Animation With Assimp</a></li>
+</ul>
+
+    </div>
+
+    
+    
+    
+
+    <footer class="post-footer">
+          <div class="post-tags">
+              <a href="/tags/opengl/" rel="tag"># opengl</a>
+          </div>
+
+        
+
+          <div class="post-nav">
+            <div class="post-nav-item">
+                <a href="/2019/06/30/%E5%B0%8F%E7%A8%8B%E5%BA%8F%E4%BA%91%E5%BC%80%E5%8F%91%E6%80%BB%E7%BB%93/" rel="prev" title="小程序云开发总结">
+                  <i class="fa fa-chevron-left"></i> 小程序云开发总结
+                </a>
+            </div>
+            <div class="post-nav-item">
+                <a href="/2020/12/20/vmware%E8%99%9A%E6%8B%9F%E6%9C%BA%E9%85%8D%E7%BD%AE%E4%BB%A3%E7%90%86%E4%B8%8A%E7%BD%91/" rel="next" title="vmware虚拟机配置代理上网">
+                  vmware虚拟机配置代理上网 <i class="fa fa-chevron-right"></i>
+                </a>
+            </div>
+          </div>
+    </footer>
+  </article>
+</div>
+
+
+
+
+
+
+
+<script>
+  window.addEventListener('tabs:register', () => {
+    let { activeClass } = CONFIG.comments;
+    if (CONFIG.comments.storage) {
+      activeClass = localStorage.getItem('comments_active') || activeClass;
+    }
+    if (activeClass) {
+      const activeTab = document.querySelector(`a[href="#comment-${activeClass}"]`);
+      if (activeTab) {
+        activeTab.click();
+      }
+    }
+  });
+  if (CONFIG.comments.storage) {
+    window.addEventListener('tabs:click', event => {
+      if (!event.target.matches('.tabs-comment .tab-content .tab-pane')) return;
+      const commentClass = event.target.classList[1];
+      localStorage.setItem('comments_active', commentClass);
+    });
+  }
+</script>
+</div>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-inner">
+
+
+<div class="copyright">
+  &copy; 
+  <span itemprop="copyrightYear">2020</span>
+  <span class="with-love">
+    <i class="fa fa-heart"></i>
+  </span>
+  <span class="author" itemprop="copyrightHolder">Rhino Hu</span>
+</div>
+  <div class="powered-by">Powered by <a href="https://hexo.io/" class="theme-link" rel="noopener" target="_blank">Hexo</a> & <a href="https://theme-next.js.org/muse/" class="theme-link" rel="noopener" target="_blank">NexT.Muse</a>
+  </div>
+
+    </div>
+  </footer>
+
+  
+  <script src="//cdn.jsdelivr.net/npm/animejs@3.2.1/lib/anime.min.js"></script>
+<script src="/js/utils.js"></script><script src="/js/motion.js"></script><script src="/js/schemes/muse.js"></script><script src="/js/next-boot.js"></script>
+
+  
+
+
+
+
+
+
+  
+
+
+
+
+
+
+</body>
+</html>
